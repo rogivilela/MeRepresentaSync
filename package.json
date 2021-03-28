@@ -20,7 +20,10 @@
   },
   "homepage": "https://github.com/rogivilela/MeRepresentaSync#readme",
   "dependencies": {
+    "axios": "^0.21.1",
+    "cron": "^1.8.2",
     "mysql2": "^2.2.5",
+    "performance-now": "^2.1.0",
     "sequelize": "^6.6.2",
     "sequelize-cli": "^6.2.0"
   },

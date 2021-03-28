@@ -17,6 +17,7 @@ class Senador extends Model {
             Email: DataTypes.STRING,
             ExternalId: DataTypes.INTEGER,
         }, {
+            tableName: 'Senadores',
             sequelize
         })
     }
