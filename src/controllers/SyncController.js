@@ -545,7 +545,7 @@ module.exports = {
             const deputados = await this.getDeputadosFromDb();
             for (const deputado of deputados) {
                 const parlamentar = aParlamentares.find(x => x.id === deputado.ExternalId);
-                if (parlamentar = null) {
+                if (parlamentar == null) {
                     const deletedLines = await deputado.destroy({
                         where: {
                             Id: deputado.Id
