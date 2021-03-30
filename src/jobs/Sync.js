@@ -91,7 +91,7 @@ const proposalsJob = new CronJob(
 );
 
 export const run = () => {
-  // deputadosJob.start();
+  deputadosJob.start();
   senadoresJob.start();
   // costsJob.start();
   // proposalsJob.start();

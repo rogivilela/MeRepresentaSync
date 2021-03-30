@@ -6,7 +6,7 @@ class Deputado extends Model {
             Id: {
                 type: DataTypes.UUID,
                 primaryKey: true,
-                defaultValue: DataTypes.UUIDV1
+                // defaultValue: DataTypes.UUIDV1
             },
             // PersonId: DataTypes.UUID,
             Name: DataTypes.STRING,

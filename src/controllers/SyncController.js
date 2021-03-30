@@ -32,20 +32,96 @@ module.exports = {
         return response;
     },
     fillOPerson(oPerson, sSource) {
-        const oPersonOut = {
-            Name: oPerson.IdentificacaoParlamentar.NomeParlamentar,
-            FullName: oPerson.IdentificacaoParlamentar.NomeCompletoParlamentar,
-            Birthdate: oPerson.DadosBasicosParlamentar.DataNascimento,
-            Email: oPerson.IdentificacaoParlamentar.EmailParlamentar,
-            IdDocument: null,
-            UrlPicture: oPerson.IdentificacaoParlamentar.UrlFotoParlamentar,
-            Source: sSource // Fonte do Senado
+        if (sSource === '10000') {
+            const oPersonOut = {
+                Name: oPerson.ultimoStatus.nome,
+                FullName: oPerson.nomeCivil,
+                Birthdate: oPerson.dataNascimento,
+                Email: oPerson.ultimoStatus.email,
+                IdDocument: oPerson.cpf,
+                UrlPicture: oPerson.ultimoStatus.urlFoto,
+                Source: sSource, // Fonte da Camara dos deputados
+                Deputado: {
+                    PersonId: null,
+                    Name: oPerson.ultimoStatus.nome,
+                    FullName: oPerson.nomeCivil,
+                    Party: oPerson.ultimoStatus.siglaPartido,
+                    State: oPerson.ultimoStatus.siglaUf,
+                    UrlPicture: oPerson.ultimoStatus.urlFoto,
+                    Email: oPerson.ultimoStatus.email,
+                    ExternalId: oPerson.id
+                }
+            }
+            return oPersonOut;
         }
-        return oPersonOut;
+        else if (sSource === '20000') {
+            const oPersonOut = {
+                Name: oPerson.IdentificacaoParlamentar.NomeParlamentar,
+                FullName: oPerson.IdentificacaoParlamentar.NomeCompletoParlamentar,
+                Birthdate: oPerson.DadosBasicosParlamentar.DataNascimento,
+                Email: oPerson.IdentificacaoParlamentar.EmailParlamentar,
+                IdDocument: null,
+                UrlPicture: oPerson.IdentificacaoParlamentar.UrlFotoParlamentar,
+                Source: sSource, // Fonte dos dados
+                Senador: {
+                    PersonId: null,
+                    Name: oPerson.IdentificacaoParlamentar.NomeParlamentar,
+                    FullName: oPerson.IdentificacaoParlamentar.NomeCompletoParlamentar,
+                    Party: oPerson.IdentificacaoParlamentar.SiglaPartidoParlamentar,
+                    State: oPerson.IdentificacaoParlamentar.UfParlamentar,
+                    UrlPicture: oPerson.IdentificacaoParlamentar.UrlFotoParlamentar,
+                    Email: oPerson.IdentificacaoParlamentar.EmailParlamentar,
+                    ExternalId: oPerson.IdentificacaoParlamentar.CodigoParlamentar,
+                }
+            }
+            return oPersonOut;
+        }
+
     },
     async checkPersonV2(aPeople, sSource) {
-        if (sSource === '20000') {
-            const result = await person.bulkCreate(aPeople, { returning: true });
+        const aSenadores = [];
+        const aDeputados = [];
+        if (sSource === '10000') {
+            const result = await person.bulkCreate(aPeople, {
+                fields: ['Name', 'FullName', 'Birthdate', 'Email', 'IdDocument', 'UrlPicture', 'Source', 'createdAt', 'updatedAt'],
+                updateOnDuplicate: ['Name', 'FullName', 'Birthdate', 'Email', 'IdDocument', 'UrlPicture', 'Source', 'updatedAt'],
+            });
+            const aPeopleFinded = await person.findAll();
+            for (const person of aPeople) {
+                const PersonResult = aPeopleFinded.find(x => x.FullName === person.FullName && x.Birthdate === person.Birthdate);
+                if (PersonResult != null) {
+                    person.Deputado.PersonId = PersonResult.Id;
+                    aDeputados.push(person.Deputado);
+                }
+            }
+            if (aDeputados.length > 0) {
+                const result = await deputado.bulkCreate(aDeputados, {
+                    fields: ['PersonId', 'Name', 'FullName', 'Party', 'State', 'UrlPicture', 'Email', 'ExternalId', 'createdAt', 'updatedAt'],
+                    updateOnDuplicate: ['Name', 'FullName', 'Party', 'State', 'UrlPicture', 'Email', 'ExternalId', 'updatedAt'],
+                });
+
+            }
+        }
+        else if (sSource === '20000') {
+            const result = await person.bulkCreate(aPeople, {
+                fields: ['Name', 'FullName', 'Birthdate', 'Email', 'IdDocument', 'UrlPicture', 'Source', 'createdAt', 'updatedAt'],
+                updateOnDuplicate: ['Name', 'FullName', 'Birthdate', 'Email', 'IdDocument', 'UrlPicture', 'Source', 'updatedAt'],
+            });
+            const aPeopleFinded = await person.findAll();
+            for (const person of aPeople) {
+                const PersonResult = aPeopleFinded.find(x => x.FullName === person.FullName && x.Birthdate === person.Birthdate);
+                if (PersonResult != null) {
+                    person.Senador.PersonId = PersonResult.Id;
+                    aSenadores.push(person.Senador);
+                }
+            }
+            if (aSenadores.length > 0) {
+                const result = await senador.bulkCreate(aSenadores, {
+                    fields: ['PersonId', 'Name', 'FullName', 'Party', 'State', 'UrlPicture', 'Email', 'ExternalId', 'createdAt', 'updatedAt'],
+                    updateOnDuplicate: ['Name', 'FullName', 'Party', 'State', 'UrlPicture', 'Email', 'ExternalId', 'updatedAt'],
+                });
+
+            }
         }
     },
     checkPerson(oPerson, sSource) {

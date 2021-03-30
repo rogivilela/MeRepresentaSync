@@ -6,7 +6,7 @@ module.exports = {
       Id: {
         type: Sequelize.UUID,
         primaryKey: true,
-        defaultValue: Sequelize.UUIDV1
+        defaultValue: Sequelize.literal('(uuid())')
       },
       ProposalId: {
         type: Sequelize.UUID,
@@ -57,6 +57,12 @@ module.exports = {
       updatedAt: {
         type: Sequelize.DATE,
         allowNull: false,
+      }
+    }, {
+      uniqueKeys: {
+        uniqueAuthor: {
+          fields: ['ProposalId', 'PersonId', 'EntityId']
+        }
       }
     });
   },

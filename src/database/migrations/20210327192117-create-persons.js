@@ -7,14 +7,13 @@ module.exports = {
       Id: {
         type: Sequelize.UUID,
         primaryKey: true,
-        defaultValue: Sequelize.UUIDV1
+        defaultValue: Sequelize.literal('(uuid())')
       },
       Name: {
         type: Sequelize.STRING
       },
       FullName: {
         type: Sequelize.STRING,
-        unique: 'uniquePerson',
       },
       Birthdate: {
         type: Sequelize.DATEONLY,
@@ -39,6 +38,13 @@ module.exports = {
       updatedAt: {
         type: Sequelize.DATE,
         allowNull: false,
+      }
+
+    }, {
+      uniqueKeys: {
+        uniquePerson: {
+          fields: ['FullName', 'Birthdate']
+        }
       }
     });
 

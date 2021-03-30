@@ -6,7 +6,6 @@ class Author extends Model {
             Id: {
                 type: DataTypes.UUID,
                 primaryKey: true,
-                defaultValue: DataTypes.UUIDV1
             },
             // ProposalId: DataTypes.UUID,
             // PersonId: DataTypes.UUID,

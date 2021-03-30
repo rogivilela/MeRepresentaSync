@@ -5,8 +5,7 @@ class Senador extends Model {
         super.init({
             Id: {
                 type: DataTypes.UUID,
-                primaryKey: true,
-                defaultValue: DataTypes.UUIDV1
+                primaryKey: true
             },
             // PersonId: DataTypes.UUID,
             Name: DataTypes.STRING,

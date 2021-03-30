@@ -6,7 +6,6 @@ class Cost extends Model {
             Id: {
                 type: DataTypes.UUID,
                 primaryKey: true,
-                defaultValue: DataTypes.UUIDV1
             },
             // PersonId: DataTypes.UUID,
             TypePerson: DataTypes.STRING(5),

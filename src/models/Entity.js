@@ -6,7 +6,6 @@ class Entity extends Model {
             Id: {
                 type: DataTypes.UUID,
                 primaryKey: true,
-                defaultValue: DataTypes.UUIDV1
             },
             Name: DataTypes.STRING,
             FullName: DataTypes.STRING,

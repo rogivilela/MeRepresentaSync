@@ -6,7 +6,7 @@ module.exports = {
       Id: {
         type: Sequelize.UUID,
         primaryKey: true,
-        defaultValue: Sequelize.UUIDV1
+        defaultValue: Sequelize.literal('(uuid())')
       },
       Name: {
         type: Sequelize.STRING
@@ -45,6 +45,12 @@ module.exports = {
       updatedAt: {
         type: Sequelize.DATE,
         allowNull: false,
+      }
+    }, {
+      uniqueKeys: {
+        uniqueEntity: {
+          fields: ['Name', 'FullName', 'FundationAt']
+        }
       }
     });
   },

@@ -6,7 +6,6 @@ class Proposal extends Model {
             Id: {
                 type: DataTypes.UUID,
                 primaryKey: true,
-                defaultValue: DataTypes.UUIDV1
             },
             Type: DataTypes.STRING(5),
             Number: DataTypes.INTEGER,
