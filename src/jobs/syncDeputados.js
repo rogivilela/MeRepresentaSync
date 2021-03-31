@@ -34,4 +34,4 @@ export const run = async () => {
   /* eslint-enable */
 };
 
-run();
+// run();

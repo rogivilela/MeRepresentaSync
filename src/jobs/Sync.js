@@ -7,6 +7,7 @@ import { run as runSyncProposals } from './syncProposals';
 
 const TIMEZONE = 'Etc/UTC';
 const EVERY_HOUR = '0 * * * *';
+const EVERY_2_HOUR = '0 */2 * * *';
 const EVERY_SECOND = '* * * * * *';
 const EVERY_MINUTE = '0 * * * * *';
 const EVERY_5_MINUTE = '0 */5 * * * *';
@@ -57,7 +58,7 @@ const senadoresJob = new CronJob(
 );
 
 const costsJob = new CronJob(
-  EVERY_HOUR,
+  EVERY_2_HOUR,
   async () => {
     try {
       await runSyncCosts();
@@ -91,8 +92,8 @@ const proposalsJob = new CronJob(
 );
 
 export const run = () => {
-  deputadosJob.start();
-  senadoresJob.start();
+  // deputadosJob.start();
+  // senadoresJob.start();
   // costsJob.start();
-  // proposalsJob.start();
+  proposalsJob.start();
 };

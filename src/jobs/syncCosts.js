@@ -9,22 +9,25 @@ export const run = async () => {
 
   console.log('SyncCosts starts');
   try {
+    const aCosts = [];
     const deputados = await SyncController.getDeputadosFromDb();
     for (const deputado of deputados) {
-      if (await SyncController.checkThereAreCostById(deputado.Id)) {
+      if (await SyncController.checkThereAreCostById(deputado.PersonId)) {
         const date = new Date();
         const dateToProcess = {
           month: date.getMonth() + 1,
           year: date.getFullYear()
         }
         const costs = await SyncController.getCostsByExternalIdFromApi(deputado.ExternalId, dateToProcess);
-        await SyncController.fillCostsById(deputado.Id, costs, "10000");
+        // aCosts = [].concat(aCosts, SyncController.fillCostsByIdV2(deputado.PersonId, costs, "10000"));
+        aCosts.push(SyncController.fillCostsByIdV2(deputado.PersonId, costs, "10000"));
       }
       else {
         const date = new Date();
         const dateToProcess = { year: date.getFullYear() }
         const costs = await SyncController.getCostsByExternalIdFromApi(deputado.ExternalId, dateToProcess);
-        await SyncController.fillCostsById(deputado.Id, costs, "10000");
+        // aCosts = [].concat(aCosts, SyncController.fillCostsByIdV2(deputado.PersonId, costs, "10000"));
+        aCosts.push(SyncController.fillCostsByIdV2(deputado.PersonId, costs, "10000"));
       }
     }
     const date = new Date();
@@ -35,14 +38,17 @@ export const run = async () => {
 
       const costs = JSONCostsSenadores.filter(x => x.SENADOR === senador.Name.toUpperCase());
       if (costs.length > 0) {
-        await SyncController.fillCostsById(senador.Id, costs, "20000");
+        // aCosts = [].concat(aCosts, SyncController.fillCostsByIdV2(senador.PersonId, costs, "20000"));
+        aCosts.push(SyncController.fillCostsByIdV2(senador.PersonId, costs, "20000"));
       }
     }
 
-    if (1 == 1);
+    if (aCosts.length > 0) {
+      await SyncController.saveCostsFromObject(aCosts);
+    }
 
   } catch (erro) {
-
+    console.log(erro);
   } finally {
     // reset the cache for next run
     RESPONSE_BODY_CACHE = {};

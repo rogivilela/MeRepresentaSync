@@ -8,6 +8,7 @@ const person = require('../models/Person');
 const deputado = require('../models/Deputado');
 const senador = require('../models/Senador');
 const cost = require('../models/Cost');
+const proposal = require('../models/Proposal');
 
 module.exports = {
     async getDeputado(sUrl) {
@@ -256,9 +257,13 @@ module.exports = {
         const people = await person.findAll();
         return people;
     },
+    async getProposalsFromDb() {
+        const proposals = await proposal.findAll();
+        return proposals;
+    },
     async checkThereAreCostById(sId) {
         if (1 == 1);
-        const Cost = await cost.findOne({ where: { IdPerson: sId } })
+        const Cost = await cost.findOne({ where: { PersonId: sId } })
         if (Cost != null) {
             return true;
         }
@@ -303,6 +308,53 @@ module.exports = {
             console.log(e);
         }
 
+    },
+    fillCostsByIdV2(sId, oCosts, sSource) {
+        const costs = [];
+        if (sSource === "10000") {
+            const { dados } = oCosts;
+            for (const linha of dados) {
+                const cost = {
+                    PersonId: sId,
+                    TypePerson: sSource, // Fonte da Camara dos deputados
+                    Month: linha.mes,
+                    Year: linha.ano,
+                    Value: linha.valorLiquido,
+                    UrlPicture: linha.urlDocumento,
+                    Invoice: linha.codDocumento + "@" + linha.numDocumento,
+                    Supplier: linha.cnpjCpfFornecedor
+                }
+
+                costs.push(cost);
+            }
+        }
+        else if (sSource === "20000") {
+            for (const linha of oCosts) {
+                linha.CNPJ_CPF = linha.CNPJ_CPF.replace(/[.]+/g, '')
+                linha.CNPJ_CPF = linha.CNPJ_CPF.replace(/[-]+/g, '')
+                linha.CNPJ_CPF = linha.CNPJ_CPF.replace(/[/]+/g, '')
+                const cost = {
+                    PersonId: sId,
+                    TypePerson: sSource, // Fonte do Senado
+                    Month: linha.MES,
+                    Year: linha.ANO,
+                    Value: linha.VALOR_REEMBOLSADO.replace(/[.]+/g, '').replace(/[,]+/g, '.'),
+                    Invoice: linha.DOCUMENTO + "@" + linha.COD_DOCUMENTO,
+                    Supplier: linha.CNPJ_CPF
+                }
+                costs.push(cost);
+            }
+        }
+        return costs;
+    },
+    async saveCostsFromObject(aCosts) {
+        for (const costsByParlamentar of aCosts) {
+            const result = await cost.bulkCreate(costsByParlamentar, {
+                fields: ['PersonId', 'TypePerson', 'Month', 'Year', 'Value', 'UrlPicture', 'Invoice', 'Supplier', 'CreatedAt', 'updatedAt'],
+                updateOnDuplicate: ['Value', 'UrlPicture', 'updatedAt'],
+            });
+            if (1 == 1);
+        }
     },
     async fillCostsById(sId, oCosts, sSource) {
         var result = {};
@@ -437,7 +489,7 @@ module.exports = {
                 const { dados } = linkNext;
                 const { links } = linkNext;
                 oLink = links.find(link => link.rel === "next");
-                if (index > 70) { // retira isso, feito so para teste 
+                if (index > 10) { // retira isso, feito so para teste 
                     oLink = null;
                 }
                 for (const linha of dados) {
@@ -501,10 +553,36 @@ module.exports = {
             console.log(error);
         }
     },
-    async fillCurrentProposals(aProposals, aAuthors, aPeople) {
+    async fillCurrentProposals(aProposals, aAuthors, aPeople, sSource) {
+        const aProposalsToinsert = [];
         const oAuthors = this.manageAuthors(aAuthors, aPeople);
         await this.createPersonByAuthors(oAuthors.people);
         aPeople = await this.getPeopleFromDb();
+        for (const proposal of aProposals) {
+            const ProprosalToInsert = {
+                Type: proposal.siglaTipo,
+                Number: proposal.numero,
+                Year: proposal.ano,
+                Description: proposal.ementa,
+                ExternalIdCamara: sSource === '10000' ? proposal.id : null,
+                ExternalIdSenado: sSource === '20000' ? proposal.id : null,
+                DescriptionDetailed: proposal.ementaDetalhada,
+                Justification: proposal.justificativa,
+                Text: proposal.texto,
+                UrlDocment: proposal.urlInteiroTeor,
+                CurrentProposal: true,
+            }
+            aProposalsToinsert.push(ProprosalToInsert);
+
+        }
+
+        const result = await proposal.bulkCreate(aProposalsToinsert, {
+            fields: ['Type', 'Number', 'Year', 'Description', 'ExternalIdCamara', 'ExternalIdSenado', 'DescriptionDetailed', 'Justification', 'Text', 'UrlDocment', 'CurrentProposal', 'createdAt', 'updatedAt'],
+            updateOnDuplicate: ['Type', 'Number', 'Year', 'Description', 'ExternalIdCamara', 'ExternalIdSenado', 'DescriptionDetailed', 'Justification', 'Text', 'UrlDocment', 'CurrentProposal', 'updatedAt'],
+        });
+
+        const aProposalsFromDb = this.getProposalsFromDb();
+
         if (1 === 1);
 
     },
@@ -593,7 +671,6 @@ module.exports = {
             if (person.codTipo == '10000') {
                 const { dados } = await this.getDeputado(person.uri);
                 if (dados != null) {
-                    oPerson.Id = uuidv1();
                     oPerson.Name = dados.ultimoStatus.nome;
                     oPerson.FullName = dados.nomeCivil;
                     oPerson.Birthdate = dados.dataNascimento;
@@ -606,7 +683,6 @@ module.exports = {
                 }
             }
             else {
-                oPerson.Id = uuidv1();
                 oPerson.Name = person.nome;
                 oPerson.FullName = person.nome;
                 oPerson.Birthdate = null;
@@ -619,7 +695,11 @@ module.exports = {
             }
         }
         if (People.length > 0) {
-            const result = await person.bulkCreate(People, { returning: true });
+            const result = await person.bulkCreate(aPeople, {
+                fields: ['Name', 'FullName', 'Birthdate', 'Email', 'IdDocument', 'UrlPicture', 'Source', 'createdAt', 'updatedAt'],
+                updateOnDuplicate: ['Name', 'FullName', 'Birthdate', 'Email', 'IdDocument', 'UrlPicture', 'Source', 'updatedAt'],
+            });
+            // const result = await person.bulkCreate(People, { returning: true });
             if (1 == 1);
         }
     }
