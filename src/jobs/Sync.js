@@ -75,7 +75,7 @@ const costsJob = new CronJob(
 );
 
 const proposalsJob = new CronJob(
-  EVERY_HOUR,
+  EVERY_2_HOUR,
   async () => {
     try {
       await runSyncProposals();

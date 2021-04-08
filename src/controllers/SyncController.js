@@ -9,9 +9,17 @@ const deputado = require('../models/Deputado');
 const senador = require('../models/Senador');
 const cost = require('../models/Cost');
 const proposal = require('../models/Proposal');
+const author = require('../models/AuthorPerson');
+const entity = require('../models/Entity');
 
 module.exports = {
     async getDeputado(sUrl) {
+        if (sUrl != null) {
+            const response = await axios.get(sUrl);
+            return response.data;
+        }
+    },
+    async getDataFromCamaraApiByLink(sUrl) {
         if (sUrl != null) {
             const response = await axios.get(sUrl);
             return response.data;
@@ -257,8 +265,12 @@ module.exports = {
         const people = await person.findAll();
         return people;
     },
-    async getProposalsFromDb() {
-        const proposals = await proposal.findAll();
+    async getEntitiesFromDb() {
+        const entities = await entity.findAll();
+        return entities;
+    },
+    async getProposalsFromDb(oWhere) {
+        const proposals = await proposal.findAll(oWhere);
         return proposals;
     },
     async checkThereAreCostById(sId) {
@@ -489,7 +501,7 @@ module.exports = {
                 const { dados } = linkNext;
                 const { links } = linkNext;
                 oLink = links.find(link => link.rel === "next");
-                if (index > 10) { // retira isso, feito so para teste 
+                if (index > 15) { // retira isso, feito so para teste 
                     oLink = null;
                 }
                 for (const linha of dados) {
@@ -553,46 +565,158 @@ module.exports = {
             console.log(error);
         }
     },
-    async fillCurrentProposals(aProposals, aAuthors, aPeople, sSource) {
+    async fillCurrentProposals(aProposals, aAuthors, sSource) {
         const aProposalsToinsert = [];
-        const oAuthors = this.manageAuthors(aAuthors, aPeople);
+        var aPeople = await this.getPeopleFromDb();
+        var aEntities = await this.getEntitiesFromDb();
+        var oAuthors = await this.manageAuthors(aAuthors, aPeople, aEntities);
         await this.createPersonByAuthors(oAuthors.people);
+        await this.createEntitiesByAuthors(oAuthors.entities);
         aPeople = await this.getPeopleFromDb();
-        for (const proposal of aProposals) {
+        aEntities = await this.getEntitiesFromDb();
+        aProposals = this.updateModelProposalsWithPeople(aPeople, aEntities, aProposals);
+        for (const Proposal of aProposals) {
+            oAuthors = [];
+
             const ProprosalToInsert = {
-                Type: proposal.siglaTipo,
-                Number: proposal.numero,
-                Year: proposal.ano,
-                Description: proposal.ementa,
-                ExternalIdCamara: sSource === '10000' ? proposal.id : null,
-                ExternalIdSenado: sSource === '20000' ? proposal.id : null,
-                DescriptionDetailed: proposal.ementaDetalhada,
-                Justification: proposal.justificativa,
-                Text: proposal.texto,
-                UrlDocment: proposal.urlInteiroTeor,
+                Type: Proposal.siglaTipo,
+                Number: Proposal.numero,
+                Year: Proposal.ano,
+                Description: Proposal.ementa,
+                ExternalIdCamara: sSource === '10000' ? Proposal.id : null,
+                ExternalIdSenado: sSource === '20000' ? Proposal.id : null,
+                DescriptionDetailed: Proposal.ementaDetalhada,
+                Justification: Proposal.justificativa,
+                Text: Proposal.texto,
+                UrlDocument: Proposal.urlInteiroTeor,
                 CurrentProposal: true,
+                Keywords: Proposal.keywords
             }
             aProposalsToinsert.push(ProprosalToInsert);
+            // const [resultProposal, bIsCreated] = await proposal.upsert(ProprosalToInsert);
+            // for (const author of Proposal.authors) {
+            //     const resultAuthor = await resultProposal.addPeopleFK(author);
+            // }
 
         }
 
         const result = await proposal.bulkCreate(aProposalsToinsert, {
-            fields: ['Type', 'Number', 'Year', 'Description', 'ExternalIdCamara', 'ExternalIdSenado', 'DescriptionDetailed', 'Justification', 'Text', 'UrlDocment', 'CurrentProposal', 'createdAt', 'updatedAt'],
-            updateOnDuplicate: ['Type', 'Number', 'Year', 'Description', 'ExternalIdCamara', 'ExternalIdSenado', 'DescriptionDetailed', 'Justification', 'Text', 'UrlDocment', 'CurrentProposal', 'updatedAt'],
+            fields: ['Type', 'Number', 'Year', 'Description', 'ExternalIdCamara', 'ExternalIdSenado', 'DescriptionDetailed', 'Justification', 'Text', 'UrlDocument', 'CurrentProposal', 'Keywords', 'createdAt', 'updatedAt'],
+            updateOnDuplicate: ['Type', 'Number', 'Year', 'Description', 'ExternalIdCamara', 'ExternalIdSenado', 'DescriptionDetailed', 'Justification', 'Text', 'UrlDocument', 'CurrentProposal', 'Keywords', 'updatedAt'],
         });
 
-        const aProposalsFromDb = this.getProposalsFromDb();
+        const aProposalsFromDb = await this.getProposalsFromDb({ where: { CurrentProposal: true } });
+        for (const proposalFromDb of aProposalsFromDb) {
+            const Proposal = aProposals.find(x => x.siglaTipo === proposalFromDb.Type &&
+                x.numero === proposalFromDb.Number &&
+                x.ano === proposalFromDb.Year);
+
+            if (Proposal != null) {
+
+                if (1 === 1);
+                for (const author of Proposal.authors) {
+                    const personFromdb = await person.findByPk(author.Id);
+                    if (personFromdb != null) {
+                        const resultAuthor = await proposalFromDb.addPeopleFK(personFromdb, {
+                            fields: ['OrderSignature', 'createdAt', 'updatedAt', 'PersonId', 'ProposalId'],
+                            update: true,
+                            through: {
+                                OrderSignature: author.OrderSignature,
+                            }
+                        });
+                    }
+                    else {
+                        const entityFromdb = await entity.findByPk(author.Id);
+                        if (entityFromdb != null) {
+                            const resultAuthor = await proposalFromDb.addEntitiesFK(entityFromdb, {
+                                fields: ['OrderSignature', 'createdAt', 'updatedAt', 'EntityId', 'ProposalId'],
+                                update: true,
+                                through: {
+                                    OrderSignature: author.OrderSignature,
+                                }
+                            });
+                        }
+                    }
+                }
+            }
+            else {
+                // Retira as propostas de atual 
+                const response = await proposalFromDb.update({
+                    CurrentProposal: false
+                })
+            }
+        }
+
 
         if (1 === 1);
 
     },
-    manageAuthors(aAuthors, aPeople) {
+    updateModelProposalsWithPeople(aPeople, aEntities, aProposals) {
+        var aAuthors = [];
+        var aProposalsAux = [];
+        var find = {};
+        for (const proposal of aProposals) {
+            aAuthors = [];
+            for (const author of proposal.authors) {
+                var sNome = "";
+                if (author.codTipo == '40000') {
+                    author.nome = author.nome.replace("Senado Federal", "");
+                    sNome = author.nome.replace("-", "").trim();
+                }
+                else if (author.codTipo == '20000' || author.codTipo == '10000') {
+                    sNome = author.nome;
+                }
+                else {
+                    sNome = author.nome;
+                }
+                if ((author.codTipo == '10000' || author.codTipo == '20000' || author.codTipo == '40000') && sNome != "") {
+                    if (proposal.authors.length > 100) {
+                        if (1 == 1);
+                    }
+                    find = {};
+                    find = aPeople.find(x => x.Name === sNome ||
+                        x.Name === sNome.toUpperCase() ||
+                        x.Name === sNome.toLowerCase());
+                    if (find != null) {
+                        var personInput = {};
+                        personInput = Object.create(find);
+                        personInput.OrderSignature = author.ordemAssinatura;
+                        aAuthors.push(personInput);
+                    }
+                }
+                else {
+                    find = {};
+                    find = aEntities.find(x => x.Name === sNome ||
+                        x.Name === sNome.toUpperCase() ||
+                        x.Name === sNome.toLowerCase());
+                    if (find != null) {
+                        var entityInput = {};
+                        entityInput = Object.create(find);
+                        entityInput.OrderSignature = author.ordemAssinatura;
+                        aAuthors.push(entityInput);
+                    }
+                }
+            }
+            proposal.authors = [];
+            proposal.authors = aAuthors;
+            aProposalsAux.push(proposal);
+        }
+        return aProposalsAux;
+    },
+    async manageAuthors(aAuthors, aPeople, aEntities) {
         var oAuthorsToCreate = {};
         oAuthorsToCreate.people = [];
+        oAuthorsToCreate.entities = [];
+
         // Elimina os autores duplicados
         var aUniqueAuthors = aAuthors.reduce((unique, o) => {
-            if (!unique.some(obj => obj.codTipo === o.codTipo && obj.nome === o.nome)) {
-                unique.push(o);
+            if (o == null) {
+                if (1 == 1);
+            }
+            else {
+                if (!unique.some(obj => obj.codTipo === o.codTipo && obj.nome === o.nome)) {
+                    unique.push(o);
+                }
             }
             return unique;
         }, []);
@@ -602,9 +726,46 @@ module.exports = {
             if (author.codTipo == '40000') {
                 author.nome = author.nome.replace("Senado Federal", "");
                 sNome = author.nome.replace("-", "").trim();
+                if (sNome == '') {
+                    if (author.uri != null) {
+                        const { dados } = await this.getDataFromCamaraApiByLink(author.uri);
+                        if (dados != null) {
+                            sNome = dados.nome;
+                            author.codTipo = '40001'
+                        }
+                        else {
+                            sNome = author.nome;
+                        }
+                    }
+                }
             }
             else if (author.codTipo == '20000' || author.codTipo == '10000') {
-                sNome = author.nome;
+                if (author.codTipo == '10000' && author.uri != null) {
+                    const { dados } = await this.getDeputado(author.uri);
+                    if (dados != null) {
+                        sNome = dados.ultimoStatus.nome;
+                    }
+                    else {
+                        sNome = author.nome;
+                    }
+                }
+                else {
+                    sNome = author.nome;
+                }
+            }
+            else {
+                if (author.uri != null) {
+                    const { dados } = await this.getDataFromCamaraApiByLink(author.uri);
+                    if (dados != null) {
+                        sNome = dados.nome;
+                    }
+                    else {
+                        sNome = author.nome;
+                    }
+                }
+                else {
+                    sNome = author.nome;
+                }
             }
             if ((author.codTipo == '10000' || author.codTipo == '20000' || author.codTipo == '40000') && sNome != "") {
                 const filtro = aPeople.filter(x => x.Name === sNome ||
@@ -613,6 +774,15 @@ module.exports = {
                 if (filtro.length === 0) {
                     author.nome = sNome;
                     oAuthorsToCreate.people.push(author);
+                }
+            }
+            else {
+                const filtro = aEntities.filter(x => x.Name === sNome ||
+                    x.Name === sNome.toUpperCase() ||
+                    x.Name === sNome.toLowerCase());
+                if (filtro.length === 0) {
+                    author.nome = sNome;
+                    oAuthorsToCreate.entities.push(author);
                 }
             }
         }
@@ -695,9 +865,67 @@ module.exports = {
             }
         }
         if (People.length > 0) {
-            const result = await person.bulkCreate(aPeople, {
-                fields: ['Name', 'FullName', 'Birthdate', 'Email', 'IdDocument', 'UrlPicture', 'Source', 'createdAt', 'updatedAt'],
+            const result = await person.bulkCreate(People, {
+                fields: ['Name', 'FullName', 'Birthdate', 'Email', 'IdDocument', 'UrlPicture', 'Source', 'CreatedAt', 'updatedAt'],
                 updateOnDuplicate: ['Name', 'FullName', 'Birthdate', 'Email', 'IdDocument', 'UrlPicture', 'Source', 'updatedAt'],
+            });
+            // const result = await person.bulkCreate(People, { returning: true });
+            if (1 == 1);
+        }
+    },
+    async createEntitiesByAuthors(aEntities) {
+        var Entities = [];
+
+
+        for (const entity of aEntities) {
+            const oEntity = {
+                Name: null,
+                FullName: null,
+                Initials: null,
+                Nickname: null,
+                EntityType: null,
+                FundationAt: null,
+                Email: null,
+                Website: null,
+                UrlPicture: null,
+                Source: null
+            };
+            if (entity.uri != null) {
+                const { dados } = await this.getDataFromCamaraApiByLink(entity.uri);
+                if (dados != null) {
+                    oEntity.Name = dados.nome;
+                    oEntity.FullName = dados.nomePublicacao;
+                    oEntity.Initials = dados.sigla;
+                    oEntity.Nickname = dados.apelido;
+                    oEntity.EntityType = dados.codTipoOrgao;
+                    oEntity.FundationAt = dados.dataInicio;
+                    oEntity.Email = null;
+                    oEntity.Website = dados.urlWebsite;
+                    oEntity.UrlPicture = null;
+                    oEntity.Source = '10000';
+
+                    Entities.push(oEntity);
+                }
+            }
+            else {
+                oEntity.Name = entity.nome;
+                oEntity.FullName = entity.nome;
+                oEntity.Initials = null;
+                oEntity.Nickname = null;
+                oEntity.EntityType = entity.codTipo;
+                oEntity.FundationAt = null;
+                oEntity.Email = null;
+                oEntity.Website = null;
+                oEntity.UrlPicture = null;
+                oEntity.Source = '10000';
+
+                Entities.push(oEntity);
+            }
+        }
+        if (Entities.length > 0) {
+            const result = await entity.bulkCreate(Entities, {
+                fields: ['Name', 'FullName', 'Initials', 'Email', 'Nickname', 'EntityType', 'FudationAt', 'Email', 'Website', 'UrlPicture', 'Source', 'CreatedAt', 'updatedAt'],
+                updateOnDuplicate: ['Name', 'FullName', 'Initials', 'Email', 'Nickname', 'EntityType', 'FudationAt', 'Email', 'Website', 'UrlPicture', 'Source', 'updatedAt'],
             });
             // const result = await person.bulkCreate(People, { returning: true });
             if (1 == 1);

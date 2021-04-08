@@ -16,7 +16,7 @@ class Proposal extends Model {
             DescriptionDetailed: DataTypes.TEXT,
             Justification: DataTypes.TEXT,
             Text: DataTypes.TEXT,
-            UrlDocment: DataTypes.STRING,
+            UrlDocument: DataTypes.STRING,
             CurrentProposal: DataTypes.BOOLEAN,
         }, {
             sequelize
@@ -24,7 +24,8 @@ class Proposal extends Model {
 
     }
     static associate(models) {
-        this.belongsToMany(models.Person, { foreignKey: 'ProposalId', through: 'authors', as: 'PeopleFK' });
+        this.belongsToMany(models.Person, { foreignKey: 'ProposalId', through: models.AuthorPerson, as: 'PeopleFK' });
+        this.belongsToMany(models.Entity, { foreignKey: 'ProposalId', through: models.AuthorEntity, as: 'EntitiesFK' });
     }
 }
 

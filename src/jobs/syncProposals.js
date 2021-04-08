@@ -20,7 +20,7 @@ export const run = async () => {
             }
 
         }
-        await SyncController.fillCurrentProposals(Proposals, Authors, await SyncController.getPeopleFromDb());
+        await SyncController.fillCurrentProposals(Proposals, Authors, '10000');
         if (1 == 1);
 
     } catch (erro) {

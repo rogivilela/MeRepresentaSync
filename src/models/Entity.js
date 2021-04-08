@@ -21,6 +21,9 @@ class Entity extends Model {
         })
 
     }
+    static associate(models) {
+        this.belongsToMany(models.Proposal, { foreignKey: 'EntityId', through: models.AuthorEntity, as: 'ProposalsFK' });
+    }
 }
 
 module.exports = Entity;

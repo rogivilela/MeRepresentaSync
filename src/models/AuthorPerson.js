@@ -1,21 +1,24 @@
 const { Model, DataTypes } = require('sequelize');
+// const { tableName } = require('./Person');
 
-class Author extends Model {
+class AuthorPerson extends Model {
     static init(sequelize) {
         super.init({
             Id: {
                 type: DataTypes.UUID,
                 primaryKey: true,
+                allowNull: true,
             },
             // ProposalId: DataTypes.UUID,
             // PersonId: DataTypes.UUID,
             // EntityId: DataTypes.UUID,
-            Type: DataTypes.INTEGER,
-            Name: DataTypes.STRING,
-            ExternalId: DataTypes.INTEGER,
+            // Type: DataTypes.INTEGER,
+            // Name: DataTypes.STRING,
+            // ExternalId: DataTypes.INTEGER,
             OrderSignature: DataTypes.INTEGER
         }, {
-            sequelize
+            sequelize,
+            tableName: 'authors_person'
         })
 
     }
@@ -26,4 +29,4 @@ class Author extends Model {
     // }
 }
 
-module.exports = Author;
+module.exports = AuthorPerson;
