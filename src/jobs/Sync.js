@@ -4,6 +4,7 @@ import { run as runSyncDeputados } from './syncDeputados';
 import { run as runSyncSenadores } from './syncSenadores';
 import { run as runSyncCosts } from './syncCosts';
 import { run as runSyncProposals } from './syncProposals';
+import { run as runSyncDeliberations } from './syncDeliberations';
 
 const TIMEZONE = 'Etc/UTC';
 const EVERY_HOUR = '0 * * * *';
@@ -91,9 +92,26 @@ const proposalsJob = new CronJob(
   TIMEZONE,
 );
 
+const deliberationsJob = new CronJob(
+  EVERY_2_HOUR,
+  async () => {
+    try {
+      await runSyncDeliberations();
+    } catch (error) {
+      /* eslint-disable no-console */
+      console.log(error);
+      /* eslint-enable */
+      // Raven.captureException(error);
+    }
+  },
+  null,
+  false, /* Start the job right now */
+  TIMEZONE,
+);
 export const run = () => {
   // deputadosJob.start();
   // senadoresJob.start();
   // costsJob.start();
-  proposalsJob.start();
+  // proposalsJob.start();
+  deliberationsJob.start();
 };

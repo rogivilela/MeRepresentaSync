@@ -1,5 +1,6 @@
 const axios = require('axios');
 // const db = require('../models/db');
+const { Op } = require("sequelize");
 const {
     v1: uuidv1,
     v4: uuidv4,
@@ -11,6 +12,7 @@ const cost = require('../models/Cost');
 const proposal = require('../models/Proposal');
 const author = require('../models/AuthorPerson');
 const entity = require('../models/Entity');
+
 
 module.exports = {
     async getDeputado(sUrl) {
@@ -590,7 +592,8 @@ module.exports = {
                 Text: Proposal.texto,
                 UrlDocument: Proposal.urlInteiroTeor,
                 CurrentProposal: true,
-                Keywords: Proposal.keywords
+                Keywords: Proposal.keywords,
+                LastUpdate: Proposal.statusProposicao.dataHora,
             }
             aProposalsToinsert.push(ProprosalToInsert);
             // const [resultProposal, bIsCreated] = await proposal.upsert(ProprosalToInsert);
@@ -601,8 +604,8 @@ module.exports = {
         }
 
         const result = await proposal.bulkCreate(aProposalsToinsert, {
-            fields: ['Type', 'Number', 'Year', 'Description', 'ExternalIdCamara', 'ExternalIdSenado', 'DescriptionDetailed', 'Justification', 'Text', 'UrlDocument', 'CurrentProposal', 'Keywords', 'createdAt', 'updatedAt'],
-            updateOnDuplicate: ['Type', 'Number', 'Year', 'Description', 'ExternalIdCamara', 'ExternalIdSenado', 'DescriptionDetailed', 'Justification', 'Text', 'UrlDocument', 'CurrentProposal', 'Keywords', 'updatedAt'],
+            fields: ['Type', 'Number', 'Year', 'Description', 'ExternalIdCamara', 'ExternalIdSenado', 'DescriptionDetailed', 'Justification', 'Text', 'UrlDocument', 'CurrentProposal', 'Keywords', 'LastUpdate', 'createdAt', 'updatedAt'],
+            updateOnDuplicate: ['Type', 'Number', 'Year', 'Description', 'ExternalIdCamara', 'ExternalIdSenado', 'DescriptionDetailed', 'Justification', 'Text', 'UrlDocument', 'CurrentProposal', 'Keywords', 'LastUpdate', 'updatedAt'],
         });
 
         const aProposalsFromDb = await this.getProposalsFromDb({ where: { CurrentProposal: true } });
@@ -930,6 +933,71 @@ module.exports = {
             // const result = await person.bulkCreate(People, { returning: true });
             if (1 == 1);
         }
+    },
+    async getLastUpdatedProposals() {
+        var toDate = new Date();
+        var fromDate = new Date();
+        fromDate.setDate(fromDate.getDate() - 10);
+        var str_toData = toDate.getFullYear() + '-' + (toDate.getMonth() + 1) + '-' + toDate.getDate();
+        var str_fromData = fromDate.getFullYear() + '-' + (fromDate.getMonth() + 1) + '-' + fromDate.getDate();
+        const aProposals = await this.getProposalsFromDb({
+            where: {
+                LastUpdate: {
+                    [Op.between]: [str_fromData, str_toData]
+                }
+            },
+        });
+        return aProposals;
+    },
+    async getDeliberationsByProprosals(proposals) {
+        var aDeliberations = [];
+        for (const proposal of proposals) {
+            const url = `https://dadosabertos.camara.leg.br/api/v2/proposicoes/${proposal.ExternalIdCamara}/votacoes?ordem=DESC&ordenarPor=dataHoraRegistro`;
+            const response = await axios.get(url);
+
+
+            const { links } = response.data;
+            var oLink = links.find(link => link.rel === "next");
+            if (oLink != null) {
+
+                while (oLink != null) {
+                    const linkNext = await this.getByLinkFromApi(oLink);
+                    const { dados } = linkNext;
+                    const { links } = linkNext;
+                    oLink = links.find(link => link.rel === "next");
+                    for (const linha of dados) {
+                        response.data.dados.push(linha);
+                    }
+                }
+            }
+
+            const { dados } = response.data;
+            for (const linha of dados) {
+                linha.ProposalId = proposal.Id;
+                aDeliberations.push(linha);
+            }
+
+        }
+        return aDeliberations;
+    },
+    manageDeliberations(deliberations, proposals) {
+        const TypeEnum = Object.freeze({
+            "PL": 'Projeto de Lei',
+            "PLP": 'Projeto de Lei Complementar', "MPV": 'Medida Provisória', "PEC": 'Proposta de Emenda à Constituição'
+        });
+        var deliberationsFilter = [];
+        for (const deliberation of deliberations) {
+            const proposal = proposals.find(x => x.Id === deliberation.ProposalId);
+            if (proposal != null) {
+                if (!deliberation.descricao.includes("Requerimento") && !deliberation.descricao.includes("Emenda")) {
+                    if (deliberation.descricao.includes(proposal.Number) && deliberation.descricao.includes(proposal.Number) && deliberation.descricao.includes(proposal.Year)) {
+                        deliberationsFilter.push(deliberation);
+                    }
+                }
+                if (1 == 1);
+            }
+        }
+        return deliberationsFilter;
     }
 
 

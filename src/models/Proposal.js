@@ -26,6 +26,7 @@ class Proposal extends Model {
     static associate(models) {
         this.belongsToMany(models.Person, { foreignKey: 'ProposalId', through: models.AuthorPerson, as: 'PeopleFK' });
         this.belongsToMany(models.Entity, { foreignKey: 'ProposalId', through: models.AuthorEntity, as: 'EntitiesFK' });
+        this.belongsToMany(models.Deliberation, { foreignKey: 'ProposalId', through: models.Deliberation, as: 'DeliberationsFK' });
     }
 }
 
