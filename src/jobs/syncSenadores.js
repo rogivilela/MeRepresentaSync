@@ -14,7 +14,9 @@ export const run = async () => {
     const { Parlamentar } = senadores.data.ListaParlamentarEmExercicio.Parlamentares;
     for (const linha of Parlamentar) {
       const { Parlamentar } = await SyncController.getSenador(linha);
-      aPeople.push(SyncController.fillOPerson(Parlamentar, '20000'));
+      if (Parlamentar != null) {
+        aPeople.push(SyncController.fillOPerson(Parlamentar, '20000'));
+      }
       // SyncController.checkPerson(Parlamentar, '20000');
 
     }

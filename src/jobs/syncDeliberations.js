@@ -12,9 +12,9 @@ export const run = async () => {
         const lastUpdatedProposals = await SyncController.getLastUpdatedProposals();
         const deliberations = await SyncController.getDeliberationsByProprosals(lastUpdatedProposals);
         const deliberationsObject = SyncController.manageDeliberations(deliberations, lastUpdatedProposals);
-        // const deliberationsVotes = await SyncController.getVotesFromApiById(deliberationsObject);
-
-        if (1 == 1);
+        const deliberationsVotes = await SyncController.getVotesFromApiById(deliberationsObject);
+        const voteByPerson = await SyncController.getPeopleVoted(deliberationsVotes, '10000');
+        await SyncController.fillDeliberationsAndVotes(lastUpdatedProposals, deliberationsObject, voteByPerson);
     } catch (erro) {
         console.log(erro);
     } finally {

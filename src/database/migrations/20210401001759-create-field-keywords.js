@@ -4,7 +4,8 @@ module.exports = {
   up: async (queryInterface, Sequelize) => {
 
     await queryInterface.addColumn('proposals', 'Keywords', {
-      type: Sequelize.STRING
+      type: Sequelize.TEXT,
+      after: "CurrentProposal"
     });
 
   },

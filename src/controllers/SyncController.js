@@ -1,5 +1,6 @@
 const axios = require('axios');
 // const db = require('../models/db');
+const moment = require('moment');
 const { Op } = require("sequelize");
 const {
     v1: uuidv1,
@@ -12,19 +13,32 @@ const cost = require('../models/Cost');
 const proposal = require('../models/Proposal');
 const author = require('../models/AuthorPerson');
 const entity = require('../models/Entity');
-
+const Deliberation = require('../models/Deliberation');
+const Vote = require('../models/Vote');
 
 module.exports = {
     async getDeputado(sUrl) {
         if (sUrl != null) {
-            const response = await axios.get(sUrl);
-            return response.data;
+            var response = {};
+            for (var i = 0; i < 0; i++) {
+                response = await axios.get(sUrl);
+                if (response != null) return response.data;
+            }
+
+
+            return response;
         }
     },
     async getDataFromCamaraApiByLink(sUrl) {
         if (sUrl != null) {
-            const response = await axios.get(sUrl);
-            return response.data;
+            var response = {};
+            for (var i = 0; i < 10; i++) {
+                response = await axios.get(sUrl);
+                if (response != null) return response.data;
+            }
+
+
+            return response;
         }
     },
     async getDeputados() {
@@ -34,8 +48,14 @@ module.exports = {
     async getSenador(oData) {
         if (oData.IdentificacaoParlamentar.CodigoParlamentar != null) {
             var url = `https://legis.senado.leg.br/dadosabertos/senador/${oData.IdentificacaoParlamentar.CodigoParlamentar}`;
-            const response = await axios.get(url);
-            return response.data.DetalheParlamentar;
+            // const response = await axios.get(url);
+            // return response.data.DetalheParlamentar;
+            var response = {};
+            for (var i = 0; i < 10; i++) {
+                response = await axios.get(url);
+                if (response != null) return response.data.DetalheParlamentar;
+            }
+            return response;
         }
     },
     async getSenadores() {
@@ -621,7 +641,7 @@ module.exports = {
                     const personFromdb = await person.findByPk(author.Id);
                     if (personFromdb != null) {
                         const resultAuthor = await proposalFromDb.addPeopleFK(personFromdb, {
-                            fields: ['OrderSignature', 'createdAt', 'updatedAt', 'PersonId', 'ProposalId'],
+                            fields: ['OrderSignature', 'CreatedAt', 'updatedAt', 'PersonId', 'ProposalId'],
                             update: true,
                             through: {
                                 OrderSignature: author.OrderSignature,
@@ -632,7 +652,7 @@ module.exports = {
                         const entityFromdb = await entity.findByPk(author.Id);
                         if (entityFromdb != null) {
                             const resultAuthor = await proposalFromDb.addEntitiesFK(entityFromdb, {
-                                fields: ['OrderSignature', 'createdAt', 'updatedAt', 'EntityId', 'ProposalId'],
+                                fields: ['OrderSignature', 'CreatedAt', 'updatedAt', 'EntityId', 'ProposalId'],
                                 update: true,
                                 through: {
                                     OrderSignature: author.OrderSignature,
@@ -931,19 +951,18 @@ module.exports = {
                 updateOnDuplicate: ['Name', 'FullName', 'Initials', 'Email', 'Nickname', 'EntityType', 'FudationAt', 'Email', 'Website', 'UrlPicture', 'Source', 'updatedAt'],
             });
             // const result = await person.bulkCreate(People, { returning: true });
-            if (1 == 1);
+
         }
     },
     async getLastUpdatedProposals() {
         var toDate = new Date();
         var fromDate = new Date();
         fromDate.setDate(fromDate.getDate() - 10);
-        var str_toData = toDate.getFullYear() + '-' + (toDate.getMonth() + 1) + '-' + toDate.getDate();
-        var str_fromData = fromDate.getFullYear() + '-' + (fromDate.getMonth() + 1) + '-' + fromDate.getDate();
+
         const aProposals = await this.getProposalsFromDb({
             where: {
                 LastUpdate: {
-                    [Op.between]: [str_fromData, str_toData]
+                    [Op.between]: [fromDate, toDate]
                 }
             },
         });
@@ -983,21 +1002,182 @@ module.exports = {
     manageDeliberations(deliberations, proposals) {
         const TypeEnum = Object.freeze({
             "PL": 'Projeto de Lei',
-            "PLP": 'Projeto de Lei Complementar', "MPV": 'Medida Provisória', "PEC": 'Proposta de Emenda à Constituição'
+            "PLP": 'Projeto de Lei Complementar',
+            "MPV": 'Medida Provisória',
+            "PEC": 'Proposta de Emenda à Constituição'
         });
+        const format = num => {
+            const n = String(num),
+                p = n.indexOf('.')
+            return n.replace(
+                /\d(?=(?:\d{3})+(?:\.|$))/g,
+                (m, i) => p < 0 || i < p ? `${m}.` : m
+            )
+        };
+
         var deliberationsFilter = [];
         for (const deliberation of deliberations) {
             const proposal = proposals.find(x => x.Id === deliberation.ProposalId);
             if (proposal != null) {
-                if (!deliberation.descricao.includes("Requerimento") && !deliberation.descricao.includes("Emenda")) {
-                    if (deliberation.descricao.includes(proposal.Number) && deliberation.descricao.includes(proposal.Number) && deliberation.descricao.includes(proposal.Year)) {
-                        deliberationsFilter.push(deliberation);
+                if (deliberation.siglaOrgao == 'PLEN') {
+                    if (!deliberation.descricao.match(/(Requerimento|requerimento|Redação Final|redação final|Redação final)/g)) {
+                        if (deliberation.descricao.includes(TypeEnum[proposal.Type]) && (deliberation.descricao.includes(proposal.Number) || deliberation.descricao.includes(format(proposal.Number))) && deliberation.descricao.includes(proposal.Year)) {
+                            deliberationsFilter.push(deliberation);
+                        }
                     }
                 }
-                if (1 == 1);
             }
         }
         return deliberationsFilter;
+    },
+    async getVotesFromApiById(deliberations) {
+        var aVotes = [];
+        for (const deliberation of deliberations) {
+            const url = `https://dadosabertos.camara.leg.br/api/v2/votacoes/${deliberation.id}/votos`;
+            const response = await axios.get(url);
+
+
+            const { links } = response.data;
+            var oLink = links.find(link => link.rel === "next");
+            if (oLink != null) {
+
+                while (oLink != null) {
+                    const linkNext = await this.getByLinkFromApi(oLink);
+                    const { dados } = linkNext;
+                    const { links } = linkNext;
+                    oLink = links.find(link => link.rel === "next");
+                    for (const linha of dados) {
+                        response.data.dados.push(linha);
+                    }
+                }
+            }
+
+            const { dados } = response.data;
+            for (const linha of dados) {
+                linha.deliberationExternalId = deliberation.id;
+                aVotes.push(linha);
+            }
+
+        }
+        return aVotes;
+    },
+    async fillDeliberationsAndVotes(proposals, deliberations, votes) {
+        var externalId = [];
+        var aVotes = [];
+        for (const deliberation of deliberations) {
+            const proposal = proposals.find(x => x.dataValues.Id == deliberation.ProposalId);
+            if (proposal != null) {
+
+                const oNewDeliberation = {
+                    ProposalId: deliberation.ProposalId,
+                    Date: deliberation.dataHoraRegistro,
+                    Description: deliberation.descricao,
+                    Approved: deliberation.aprovacao,
+                    ExternalId: deliberation.id,
+                    Shift: 0,
+                    Source: '10000',
+                };
+                const oDeliberationResponse = await Deliberation.upsert(oNewDeliberation, {
+                    fields: ['ProposalId', 'Date', 'Description', 'Approved', 'ExternalId', 'Shift', 'Source', 'CreatedAt', 'UpdatedAt'],
+                    updateOnDuplicate: ['Date', 'Description', 'Approved', 'ExternalId', 'Shift', 'Source', 'UpdatedAt']
+                });
+
+                externalId.push(deliberation.id);
+
+            }
+        }
+
+        const response = await Deliberation.findAll({
+            where: {
+                ExternalId: {
+                    [Op.in]: externalId
+                }
+            }
+        })
+
+        for (const deliberation of response) {
+            aVotes = [];
+            const votesFilter = votes.filter(x => x.
+                deliberationExternalId == deliberation.dataValues.ExternalId);
+            for (const voteFilter of votesFilter) {
+                const vote = {
+                    DeliberationId: deliberation.Id,
+                    PersonId: voteFilter.PersonId,
+                    Value: voteFilter.tipoVoto,
+                }
+                // const response = await deliberation.addVotesFK(vote);
+                aVotes.push(vote);
+            }
+            if (aVotes.length > 0) {
+                const result = await Vote.bulkCreate(aVotes, {
+                    fields: ['DeliberationId', 'PersonId', 'Value', 'CreatedAt', 'UpdatedAt'],
+                    updateOnDuplicate: ['DeliberationId', 'PersonId', 'Value', 'UpdatedAt'],
+                });
+
+            }
+        }
+
+        if (1 == 1);
+    },
+    async getPeopleVoted(deliberationsVotes, sSource) {
+        const voteByPerson = [];
+        var aDados = [];
+        var oPeopleToCreate = [];
+        var aPeople = await this.getPeopleFromDb();
+        if (sSource == '10000') {
+            // Elimina os Deputados votantes duplicados
+            var aUniquePeople = deliberationsVotes.reduce((unique, o) => {
+                if (o == null) {
+                    if (1 == 1);
+                }
+                else {
+                    if (!unique.some(obj => obj.deputado_.id === o.deputado_.id)) {
+                        unique.push(o);
+                    }
+                }
+                return unique;
+            }, []);
+
+            for (const deputado of aUniquePeople) {
+                var sNome = "";
+                const { dados } = await this.getDeputado(deputado.deputado_.uri);
+                if (dados != null) {
+                    sNome = dados.ultimoStatus.nome;
+                    aDados.push(dados);
+                }
+                else {
+                    sNome = deputado.deputado_.nome;
+                }
+                const filtro = aPeople.filter(x => x.Name === sNome ||
+                    x.Name === sNome.toUpperCase() ||
+                    x.Name === sNome.toLowerCase());
+                if (filtro.length === 0) {
+                    deputado.deputado_.nome = sNome;
+                    deputado.deputado_.codTipo = '10000';
+                    oPeopleToCreate.push(deputado.deputado_);
+                }
+            }
+        }
+        await this.createPersonByAuthors(oPeopleToCreate);
+        aPeople = await this.getPeopleFromDb();
+        for (const vote of deliberationsVotes) {
+            var sNome = "";
+            const dados = aDados.find(x => x.uri == vote.deputado_.uri);
+            if (dados != null) {
+                sNome = dados.ultimoStatus.nome;
+            }
+            else {
+                sNome = vote.deputado_.nome;
+            }
+            const person = aPeople.find(x => x.Name === sNome ||
+                x.Name === sNome.toUpperCase() ||
+                x.Name === sNome.toLowerCase());
+            if (person != null) {
+                vote.PersonId = person.Id;
+                voteByPerson.push(vote);
+            }
+        }
+        return voteByPerson;
     }
 
 

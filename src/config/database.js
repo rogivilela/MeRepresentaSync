@@ -5,6 +5,7 @@ module.exports = {
     password: 'root',
     database: 'merepresentadb3',
     // logging: console.log,
+    logging: false,
     define: {
         timestamps: true,
     },
